@@ -13,7 +13,6 @@ import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -75,27 +74,23 @@ public class TransactionsApplication implements CommandLineRunner {
 	private LateFeeEntityRepository lateFeeEntityRepo;
 	@PostMapping(value="transaction", consumes=MediaType.APPLICATION_JSON_VALUE, produces=MediaType.APPLICATION_JSON_VALUE)
 	Mono<UUID> postTransaction(@RequestBody SomeEntity someEntity) {
-		return Mono.just(someEntity)
-			.flatMap(entity->{
-				someEntityRepo.save(someEntity);
-				return lateFeeClient
-					.post()
-					.bodyValue(IdHolder.builder().id(entity.getId()).build())
-					.retrieve()
-					.bodyToMono(UUID.class)
-					.flatMap(uid->Mono.just(uid));
-			});
+		SomeEntity entity = someEntityRepo.save(someEntity);
+			return lateFeeClient
+				.post()
+				.bodyValue(IdHolder.builder().id(entity.getId()).build())
+				.retrieve()
+				.bodyToMono(UUID.class);
 	}
-	@GetMapping(value="transaction/{id}", produces=MediaType.APPLICATION_JSON_VALUE)
-	Mono<SomeEntity> postTransaction(@PathVariable Long id) {
-		return Mono.just(someEntityRepo.findById(id).get());
+	@PostMapping(value="transactionbyid", consumes=MediaType.APPLICATION_JSON_VALUE, produces=MediaType.APPLICATION_JSON_VALUE)
+	Mono<SomeEntity> getTransactionById(@RequestBody Mono<IdHolder> idHolder) {
+		return idHolder.map(id->someEntityRepo.findById(id.getId()).get());
 	}
 	@PostMapping(value="latefee", consumes=MediaType.APPLICATION_JSON_VALUE, produces=MediaType.APPLICATION_JSON_VALUE)
-	Mono<UUID> postLateFee(@RequestBody LateFeeEntity lateFeeEntity) {
-		return Mono.just(lateFeeEntity)
-		.flatMap(entity->{
-			lateFeeEntityRepo.save(lateFeeEntity);
-			return Mono.just(UUID.randomUUID());
+	Mono<UUID> postLateFee(@RequestBody Mono<LateFeeEntity> lateFeeEntity) {
+		return lateFeeEntity
+		.map(entity->{
+			lateFeeEntityRepo.save(entity);
+			return UUID.randomUUID();
 		});
 	}
 	@GetMapping(value="transactions", produces=MediaType.APPLICATION_JSON_VALUE)
